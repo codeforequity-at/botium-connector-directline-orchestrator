@@ -1,6 +1,6 @@
 {
   "name": "botium-connector-directline-orchestrator",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Botium Connector for Directline Orchestrator",
   "main": "dist/botium-connector-directline-orchestrator-cjs.js",
   "module": "dist/botium-connector-directline-orchestrator-es.js",
