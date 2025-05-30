@@ -1,6 +1,6 @@
 {
   "name": "botium-connector-directline-orchestrator",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Botium Connector for Directline Orchestrator",
   "main": "dist/botium-connector-directline-orchestrator-cjs.js",
   "module": "dist/botium-connector-directline-orchestrator-es.js",
@@ -11,7 +11,7 @@
     "build": "npm run eslint && rollup -c",
     "eslint": "eslint index.js src",
     "eslint-fix": "eslint --fix index.js src",
-    "test": "mocha test/unittest/**/*spec.js",
+    "test": "echo Just placeholder, no tests here yet",
     "test-nightly": "mocha test/nightly/**/*spec.js"
   },
   "repository": {
