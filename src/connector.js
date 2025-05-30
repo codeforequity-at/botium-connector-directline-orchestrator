@@ -224,9 +224,9 @@ class BotiumConnectorDirectlineOrchestrator {
                       debug(`Websocket connection converted to botium message: ${JSON.stringify(Object.assign({}, botMsg, { sourceData: '...' }), null, 2)}`)
                       this._runInQueue(async () => {
                         const waitingForSemaphore = !!this.messageSendingSemaphorePromise
-                        waitingForSemaphore && debug(`Websocket connection waiting for semaphore start`)
+                        waitingForSemaphore && debug('Websocket connection waiting for semaphore start')
                         await (this.messageSendingSemaphorePromise || Promise.resolve())
-                        waitingForSemaphore && debug(`Websocket connection waiting for semaphore end`)
+                        waitingForSemaphore && debug('Websocket connection waiting for semaphore end')
                         this.queueBotSays(botMsg)
                       })
                     }
@@ -273,7 +273,6 @@ class BotiumConnectorDirectlineOrchestrator {
       })
       const userSaysData = await responseUserSays.text()
 
-
       debug(`UserSays response: ${userSaysData}`)
       if (!responseUserSays.ok) {
         throw new Error(`UserSays failed to send msg: "${JSON.stringify(msg)}" activity: "${JSON.stringify(activity)}" with error: ${responseUserSays.status} ${responseUserSays.statusText}`)
@@ -311,7 +310,6 @@ class BotiumConnectorDirectlineOrchestrator {
       debug('Stop semaphore resolve is not null!')
       this.messageSendingSemaphorePromiseResolve = null
     }
-
   }
 
   async Clean () {
