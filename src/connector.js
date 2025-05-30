@@ -36,6 +36,10 @@ class BotiumConnectorDirectlineOrchestrator {
     this.receivedMessageIds = null
     this.ws = null
     this.wsOpened = false
+    // The rest request to send message returns AFTER a chat response is coming via webhook.
+    // So to keep the user message BEFORE the bot response visually, we need to use a semaphore
+    this.messageSendingSemaphorePromise = null
+    this.messageSendingSemaphorePromiseResolve = null
   }
 
   async Validate () {
@@ -80,7 +84,12 @@ class BotiumConnectorDirectlineOrchestrator {
         }
       })
       if (!responseToken.ok) {
-        throw new Error(`Token generation failed with status: ${responseToken.status} ${responseToken.statusText}`)
+        let tokenData
+        try {
+          tokenData = await responseToken.json()
+        } catch (err) {
+        }
+        throw new Error(`Token generation failed with status: ${responseToken.status} ${responseToken.statusText} ${tokenData && JSON.stringify(tokenData)}`)
       }
       const tokenData = await responseToken.json()
       this.token = tokenData.token
@@ -212,8 +221,12 @@ class BotiumConnectorDirectlineOrchestrator {
                       debug(`Websocket connection received message: ${JSON.stringify(activity)}`)
                       this.receivedMessageIds[activity.id] = true
                       const botMsg = this.delegateConnectorForConverting.ActivityToBotiumMsg(activity)
-                      debug(`Websocket connection converted to botium message: ${JSON.stringify(Object.assign({}, botMsg, { sourceData: '...' }))}`)
+                      debug(`Websocket connection converted to botium message: ${JSON.stringify(Object.assign({}, botMsg, { sourceData: '...' }), null, 2)}`)
                       this._runInQueue(async () => {
+                        const waitingForSemaphore = !!this.messageSendingSemaphorePromise
+                        waitingForSemaphore && debug(`Websocket connection waiting for semaphore start`)
+                        await (this.messageSendingSemaphorePromise || Promise.resolve())
+                        waitingForSemaphore && debug(`Websocket connection waiting for semaphore end`)
                         this.queueBotSays(botMsg)
                       })
                     }
@@ -241,6 +254,12 @@ class BotiumConnectorDirectlineOrchestrator {
 
     debug(`UserSays sending activity: ${JSON.stringify(activity, null, 2)}`)
     try {
+      if (this.messageSendingSemaphorePromise) {
+        debug('UserSays semaphore is not null!')
+      }
+      this.messageSendingSemaphorePromise = new Promise((resolve) => {
+        this.messageSendingSemaphorePromiseResolve = resolve
+      })
       const responseUserSays = await fetch(`${this.caps[Capabilities.DIRECTLINE_ORCHESTRATOR_CONVERSATIONS_URL]}/${this.conversationId}/activities`, {
         method: 'POST',
         headers: {
@@ -252,14 +271,26 @@ class BotiumConnectorDirectlineOrchestrator {
         },
         body: JSON.stringify(activity)
       })
+      const userSaysData = await responseUserSays.text()
+
+
+      debug(`UserSays response: ${userSaysData}`)
       if (!responseUserSays.ok) {
         throw new Error(`UserSays failed to send msg: "${JSON.stringify(msg)}" activity: "${JSON.stringify(activity)}" with error: ${responseUserSays.status} ${responseUserSays.statusText}`)
       }
-
-      debug(`UserSays response: ${JSON.stringify(responseUserSays, null, 2)}`)
     } catch (err) {
       debug(`UserSays failed with error: ${err.message}`)
       throw new Error(`UserSays failed with error: ${err.message}`)
+    } finally {
+      setTimeout(() => {
+        if (this.messageSendingSemaphorePromiseResolve) {
+          this.messageSendingSemaphorePromiseResolve()
+          this.messageSendingSemaphorePromiseResolve = null
+          this.messageSendingSemaphorePromise = null
+        } else {
+          debug('UserSays semaphore resolve not found!')
+        }
+      }, 0)
     }
   }
 
@@ -272,6 +303,15 @@ class BotiumConnectorDirectlineOrchestrator {
     this.receivedMessageIds = null
     this.ws = null
     this.queue = null
+    if (this.messageSendingSemaphorePromise) {
+      debug('Stop semaphore is not null!')
+      this.messageSendingSemaphorePromise = null
+    }
+    if (this.messageSendingSemaphorePromiseResolve) {
+      debug('Stop semaphore resolve is not null!')
+      this.messageSendingSemaphorePromiseResolve = null
+    }
+
   }
 
   async Clean () {
